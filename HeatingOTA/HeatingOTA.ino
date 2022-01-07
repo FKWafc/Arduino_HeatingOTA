@@ -60,23 +60,33 @@ boolean reconnect() {
 }
 
 
+#define LIVING 0
+#define LIVING_CHANNEL 04
+#define DINING 1
+#define DINING_CHANNEL 35
+#define CHILD1 2
+#define CHILD1_CHANNEL 34
+#define OFFICE 3
+#define OFFICE_CHANNEL 36
+#define KITCHEN 4
+#define KITCHEN_CHANNEL 39
 
-#define LIVING 04
-#define DINING 35
-#define CHILD1 34
-#define OFFICE 36
-#define KITCHEN 39
-
-#define CONSERVATORY 14
-#define BEDROOM 27
-#define BATHROOM 16
-#define HALL 25
-#define STUDIO 17
-#define CHILD3 26
+#define CONSERVATORY 5
+#define CONSERVATORY_CHANNEL 14
+#define BEDROOM 6
+#define BEDROOM_CHANNEL 27
+#define BATHROOM 7
+#define BATHROOM_CHANNEL 16
+#define HALL 8
+#define HALL_CHANNEL 25
+#define STUDIO 9
+#define STUDIO_CHANNEL 17
+#define CHILD3 10
+#define CHILD3_CHANNEL 26
 
 #define CIRCULATE 18
 #define HEATPUMP 19
-#define HALLACTU 23
+#define HALL_CHANNELACTU 23
 #define SPARE 5
 
 #define START_INTERVAL 120000
@@ -84,7 +94,10 @@ boolean reconnect() {
 
 #define SENSORARRAY 11
 String sensorNames[SENSORARRAY] = { "Living room", "Dining room", "Child 1 bedroom", "Office", "Kitchen", "Conservatory", "Guest bedroom", "Bathroom", "Hall", "Studio","Child3 bedroom" };
-int sensorChannels[SENSORARRAY] = { LIVING, DINING, CHILD1, OFFICE, KITCHEN, CONSERVATORY, BEDROOM, BATHROOM, HALL, STUDIO, CHILD3 };
+int sensorChannels[SENSORARRAY] = { LIVING_CHANNEL, DINING_CHANNEL, CHILD1_CHANNEL, OFFICE_CHANNEL, KITCHEN_CHANNEL, CONSERVATORY_CHANNEL, BEDROOM_CHANNEL, BATHROOM_CHANNEL, HALL_CHANNEL, STUDIO_CHANNEL, CHILD3_CHANNEL };
+// defining static array and a variable array that will be used for comparisons in checkStates()
+static int sensorState[SENSORARRAY] = { LIVING, DINING, CHILD1, OFFICE, KITCHEN, CONSERVATORY, BEDROOM, BATHROOM, HALL, STUDIO, CHILD3 };
+int currentState[SENSORARRAY] = { LIVING, DINING, CHILD1, OFFICE, KITCHEN, CONSERVATORY, BEDROOM, BATHROOM, HALL, STUDIO, CHILD3 };
 
 void displaySensors() {
   
@@ -100,7 +113,7 @@ void displaySensors() {
 
 #define CONTROLARRAY 4
 String controlNames[CONTROLARRAY] = { "Circulation pump", "Heatpump", "Hall ACU", "Spare"};
-int controlChannels[CONTROLARRAY] = { CIRCULATE, HEATPUMP, HALLACTU, SPARE };
+int controlChannels[CONTROLARRAY] = { CIRCULATE, HEATPUMP, HALL_CHANNELACTU, SPARE };
 
 void displayControls() {
   
@@ -210,31 +223,42 @@ int checkHeat() {
     delay(10);
   }
 }
+// method to compare sensor states and send MQTT messages to alert changes
+int checkStates() {
+  
+  for (int i = 0; i < SENSORARRAY; i++) {
+        currentState[i] = digitalRead(sensorChannels[i]);
+        if (currentState[i] != sensorState[i]) {
+          client.publish("heating", "%s changed state", sensorState[i]);
+          sensorState[i] = currentState[i];
+        }
+  }
+}
 
 int checkThermostats() {
   static int startHeating;
-  int Living = digitalRead(LIVING);
-  int Dining = digitalRead(DINING);
-  int Child1 = digitalRead(CHILD1);
-  int Office = digitalRead(OFFICE);
-  int Kitchen = digitalRead(KITCHEN);
-  int Conservatory = digitalRead(CONSERVATORY);
-  int Bedroom = digitalRead(BEDROOM);
-  int Bathroom = digitalRead(BATHROOM);
-  int Hall = digitalRead(HALL);
-  int Studio = digitalRead(STUDIO);
-  int Child3 = digitalRead(CHILD3);
+  int Living = digitalRead(LIVING_CHANNEL);
+  int Dining = digitalRead(DINING_CHANNEL);
+  int Child1 = digitalRead(CHILD1_CHANNEL);
+  int Office = digitalRead(OFFICE_CHANNEL);
+  int Kitchen = digitalRead(KITCHEN_CHANNEL);
+  int Conservatory = digitalRead(CONSERVATORY_CHANNEL);
+  int Bedroom = digitalRead(BEDROOM_CHANNEL);
+  int Bathroom = digitalRead(BATHROOM_CHANNEL);
+  int Hall = digitalRead(HALL_CHANNEL);
+  int Studio = digitalRead(STUDIO_CHANNEL);
+  int Child3 = digitalRead(CHILD3_CHANNEL);
   
   if (!Hall) {
 
     // Turn on Hall Actuator
-    digitalWrite(HALLACTU, ON);    
+    digitalWrite(HALL_CHANNELACTU, ON);    
   }
 
   if (Hall) {
 
     // Turn off Hall Actuator
-    digitalWrite(HALLACTU, OFF);    
+    digitalWrite(HALL_CHANNELACTU, OFF);    
   }
   
   if (Living&&Dining&&Child1&&Office&&Kitchen&&Conservatory&&Bedroom&&Bathroom&&Hall&&Studio&&Child3) {
@@ -282,22 +306,22 @@ void setup(void) {
   client.setServer(mqttserver, 1883);
   client.setCallback(callback);
 
-  pinMode(LIVING,INPUT_PULLUP);
-  pinMode(DINING,INPUT_PULLUP);
-  pinMode(CHILD1,INPUT_PULLUP);
-  pinMode(OFFICE,INPUT_PULLUP);
-  pinMode(KITCHEN,INPUT_PULLUP);
-  pinMode(CONSERVATORY,INPUT_PULLUP);
-  pinMode(BEDROOM,INPUT_PULLUP);  
-  pinMode(BATHROOM,INPUT_PULLUP);
-  pinMode(HALL,INPUT_PULLUP); 
-  pinMode(STUDIO,INPUT_PULLUP);
-  pinMode(CHILD3,INPUT_PULLUP);
+  pinMode(LIVING_CHANNEL,INPUT_PULLUP);
+  pinMode(DINING_CHANNEL,INPUT_PULLUP);
+  pinMode(CHILD1_CHANNEL,INPUT_PULLUP);
+  pinMode(OFFICE_CHANNEL,INPUT_PULLUP);
+  pinMode(KITCHEN_CHANNEL,INPUT_PULLUP);
+  pinMode(CONSERVATORY_CHANNEL,INPUT_PULLUP);
+  pinMode(BEDROOM_CHANNEL,INPUT_PULLUP);  
+  pinMode(BATHROOM_CHANNEL,INPUT_PULLUP);
+  pinMode(HALL_CHANNEL,INPUT_PULLUP); 
+  pinMode(STUDIO_CHANNEL,INPUT_PULLUP);
+  pinMode(CHILD3_CHANNEL,INPUT_PULLUP);
 
   pinMode(LED,OUTPUT);
   digitalWrite(LED,OFF);
-  pinMode(HALLACTU,OUTPUT);
-  digitalWrite(HALLACTU,OFF);
+  pinMode(HALL_CHANNELACTU,OUTPUT);
+  digitalWrite(HALL_CHANNELACTU,OFF);
   pinMode(CIRCULATE,OUTPUT);
   digitalWrite(CIRCULATE,OFF);
   pinMode(HEATPUMP,OUTPUT);
@@ -339,6 +363,7 @@ void loop() {
   // put your main code here, to run repeatedly:
   //digitalWrite(LED,ON);
   checkHeat();
+  checkStates();
   
   server.handleClient();
   delay(10);//allow the cpu to switch to other tasks
