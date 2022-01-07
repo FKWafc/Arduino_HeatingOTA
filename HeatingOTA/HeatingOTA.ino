@@ -225,11 +225,12 @@ int checkHeat() {
 }
 // method to compare sensor states and send MQTT messages to alert changes
 int checkStates() {
-  
+  char temp[56];
   for (int i = 0; i < SENSORARRAY; i++) {
         currentState[i] = digitalRead(sensorChannels[i]);
         if (currentState[i] != sensorState[i]) {
-          client.publish("heating", "%s changed state", sensorState[i]);
+          sprintf (temp, "%s changed state from %d to %d", sensorNames[i].c_str(), sensorState[i], currentState[i]);
+          client.publish("heating", temp);
           sensorState[i] = currentState[i];
         }
   }
