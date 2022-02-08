@@ -3,13 +3,16 @@
 #include <ESPmDNS.h>
 #include <PubSubClient.h>
 #include <ArduinoOTA.h>
+#include <esp_pm.h>
+#include <esp_wifi.h>
+#include <esp_wifi_types.h>
 
-const char *ssid = "Utility_WIFI";
+const char *ssid = "TP-Link_D2BC";
 const char *password = "39277756";
 String hostname = "HeatingOTA";
 
 WebServer server(80);
-IPAddress mqttserver(192, 168, 101, 117);
+IPAddress mqttserver(192, 168, 101, 190);
 WiFiClient wificlient;
 PubSubClient client(wificlient);
 
@@ -229,7 +232,8 @@ int checkStates() {
   for (int i = 0; i < SENSORARRAY; i++) {
         currentState[i] = digitalRead(sensorChannels[i]);
         if (currentState[i] != sensorState[i]) {
-          sprintf (temp, "%s changed state from %d to %d", sensorNames[i].c_str(), sensorState[i], currentState[i]);
+// MQTT message eg. "heating/HALL/state/0"
+          sprintf (temp, "%s/state/%d", sensorNames[i].c_str(), currentState[i]);
           client.publish("heating", temp);
           sensorState[i] = currentState[i];
         }
@@ -275,6 +279,7 @@ void setup(void) {
   Serial.begin(115200);
   WiFi.setHostname(hostname.c_str());
   WiFi.mode(WIFI_STA);
+  esp_wifi_set_ps( WIFI_PS_NONE );
   WiFi.begin(ssid, password);
   Serial.println("");
 
