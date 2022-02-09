@@ -3,22 +3,17 @@
 #include <ESPmDNS.h>
 #include <PubSubClient.h>
 #include <ArduinoOTA.h>
-#include <esp_pm.h>
-#include <esp_wifi.h>
-#include <esp_wifi_types.h>
+#include "HeatingOTA.h"
 
-const char *ssid = "TP-Link_D2BC";
-const char *password = "39277756";
-String hostname = "HeatingOTA";
+static int wifi_count = 0;
 
 WebServer server(80);
-IPAddress mqttserver(192, 168, 101, 190);
 WiFiClient wificlient;
 PubSubClient client(wificlient);
 
 #define LED 02
-#define ON HIGH
-#define OFF LOW
+#define ON LOW
+#define OFF HIGH
 
 void callback(char* topic, byte* payload, unsigned int length) {
   // handle message arrived, i.e. set an output
@@ -31,7 +26,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message: ");
   for(int i = 0; i < length; i ++)
   {
-    // Serial.print(char(payload[i]));
     message += (char(payload[i]));
   }
 
@@ -53,7 +47,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 long lastReconnectAttempt = 0;
 
 boolean reconnect() {
-  if (client.connect("TestClientFinn")) {
+  if (client.connect("HeatingClient")) {
     // Once connected, publish an announcement...
     client.publish("outTopic","hello world, heating control here");
     // ... and resubscribe
@@ -130,6 +124,20 @@ void displayControls() {
   server.send(200, "text/html", out);
 }
 
+void displayWiFi() {
+
+  String out = "";
+  char temp[56];
+
+
+  sprintf(temp, "%s strength is %d db<br>\n", ssid, WiFi.RSSI());
+  out += temp;
+  sprintf(temp, "WiFi reconnect count is %d<br>\n", wifi_count);
+  out += temp;
+
+  server.send(200, "text/html", out);
+}
+
 void handleNotFound() {
   String message = "File Not Found\n\n";
   message += "URI: ";
@@ -157,7 +165,7 @@ void handleRoot() {
 
            "<html>\
   <head>\
-    <meta http-equiv='refresh' content='5'/>\
+    <meta http-equiv='refresh' content='10'/>\
     <title>Heating Control OTA Version 1.0</title>\
     <style>\
       body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
@@ -167,9 +175,11 @@ void handleRoot() {
     <h1>Heating Control OTA</h1>\
     <p>Uptime: %02d:%02d:%02d</p>\
     <p>Thermostats</p>\
-    <iframe src=\"/sensors.html\" width=\"300\" height=\"400\" border:none;></iframe>\
+    <iframe src=\"/sensors.html\" width=\"300\" height=\"250\" border:none;></iframe>\
     <p>Controls</p>\
-    <iframe src=\"/controls.html\" width=\"300\" height=\"200\" border:none;></iframe>\
+    <iframe src=\"/controls.html\" width=\"300\" height=\"100\" border:none;></iframe>\
+    <p>WiFi</p>\
+    <iframe src=\"/wifi.html\" width=\"300\" height=\"75\" border:none;></iframe>\
   </body>\
 </html>",
 
@@ -275,12 +285,32 @@ int checkThermostats() {
   return startHeating;
 }
 
+void Wifi_disconnected(WiFiEvent_t event, WiFiEventInfo_t info){
+  Serial.println("Disconnected from WIFI access point");
+  Serial.print("WiFi lost connection. Reason: ");
+  Serial.println(info.disconnected.reason);
+  Serial.println("Reconnecting...");
+  WiFi.begin(ssid, password);
+  wifi_count++;
+}
+
+void WiFi_Connected(WiFiEvent_t event, WiFiEventInfo_t info){
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+}
+
+void Get_IPAddress(WiFiEvent_t event, WiFiEventInfo_t info){
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
 void setup(void) {
   Serial.begin(115200);
   WiFi.setHostname(hostname.c_str());
   WiFi.mode(WIFI_STA);
-  esp_wifi_set_ps( WIFI_PS_NONE );
-  WiFi.begin(ssid, password);
+  WiFi.onEvent(WiFi_Connected,SYSTEM_EVENT_STA_CONNECTED);
+  WiFi.onEvent(Get_IPAddress, SYSTEM_EVENT_STA_GOT_IP);
+  WiFi.onEvent(Wifi_disconnected, SYSTEM_EVENT_STA_DISCONNECTED);  WiFi.begin(ssid, password);
   Serial.println("");
 
   // Wait for connection
@@ -302,6 +332,7 @@ void setup(void) {
   server.on("/", handleRoot);
   server.on("/sensors.html", displaySensors);
   server.on("/controls.html", displayControls);
+  server.on("/wifi.html", displayWiFi);
   server.on("/inline", []() {
     server.send(200, "text/plain", "this works as well");
   });
